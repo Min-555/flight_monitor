@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 import re
 import pandas as pd
 import random
+import socket
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +31,17 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+def check_internet():
+    try:
+        socket.create_connection(("8.8.8.8", 53), timeout=3)
+        return True
+    except OSError:
+        return False
+
+if not check_internet():
+    logger.error("No internet connection. Exiting.")
+    exit()
 
 class FlightMonitor:
     def __init__(self):
@@ -142,7 +154,14 @@ class FlightMonitor:
 
         for key, url in self.urls.items():
             try:
-                driver.get(url)
+                for attempt in range(3): 
+                    try:
+                        driver.set_page_load_timeout(30)
+                        driver.get(url)
+                        break
+                    except Exception as e:
+                        logger.warning(f"Attempt {attempt+1} timeout for {url}. Retrying...")
+                        time.sleep(5)
                 logger.info(f"Accessing URL: {url}")
 
                 cookie_check = self.check_element_exists(driver, "/html/body/div[3]/div/div[2]/div/div/div[3]/div/div[1]/button[1]/div")
@@ -350,4 +369,5 @@ class FlightMonitor:
 if __name__ == "__main__":
     monitor = FlightMonitor()
     monitor.run()
+
 
